@@ -1,0 +1,3 @@
+# A pack keeps Linux line ends in its shell scripts, so that a clone on Windows
+# does not break them (docs/PACKS.md section 14, "Before you start").
+*.sh text eol=lf

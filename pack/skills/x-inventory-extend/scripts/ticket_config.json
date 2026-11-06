@@ -1,0 +1,10 @@
+{
+  "resolved": true,
+  "project": "NEXUIE",
+  "issue_type": "Support Request",
+  "summary": "Extend inventory due date",
+  "priority": "P3-Medium",
+  "components": ["Labops : Inventory Management"],
+  "fields": {"customfield_18201": "Extend Inventory Due Date"},
+  "reporter": "token-owner"
+}

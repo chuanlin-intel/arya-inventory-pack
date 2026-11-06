@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "count": 1,
+  "emails": [
+    {
+      "id": "SYNTH-MSG-0002",
+      "subject": "Inventory Due in 7 Days.\u00a0",
+      "from": "Intellabs Support Services <Intellabs_Support_Services@example.com>",
+      "receivedDateTime": "2026-11-02T01:00:00Z",
+      "isRead": false,
+      "bodyType": "text",
+      "body": "New Borrower\t11111111 - Doe, Jane\nFormer Borrower\tN/A\nInventory Due in 7 Days. Contact the Return To person(s) if you want to extend the due date.\nThis notice is sent to the Borrower and cc: Assigned to, Managed by. Borrower's Manager also cc'd on over 21 days past due.\nSerial Number\nSystem Serial Number\tBarcode\tModel ID\tFinance/IP Type\tHome Location\tReturn To\tDue Date\tStatus\nSYNTH0000001\nN/A \t\tNova Lake, DDR5, CRB, Pre PRQ - N00000-000\nPrototype System\tNon-HVPIP\tNEX INVENTORY 1\t22222222 - Roe, Richard\t2026-11-09 00:00:00 PST\tIn Use\n\nSYNTH0000002\nN/A \t\tNOVA LAKE PCH-S PRODUCT - 00 XXXXXX X\nSilicon\tNon-HVPIP\tNEX INVENTORY 1\t22222222 - Roe, Richard\t2026-11-09 00:00:00 PST\tIn Use\n\nSYNTH0000003\nN/A \t\tNOVA LAKE HX PRODUCT - 00 XXXXXX X\nSilicon\tHVPIP\tNEX INVENTORY 1\t22222222 - Roe, Richard\t2026-11-09 00:00:00 PST\tIn Use\n\nChecked Out to Me\nComplete Overdue List\nIntel(R) High Value Physical Intellectual Property Notice\n"
+    }
+  ]
+}

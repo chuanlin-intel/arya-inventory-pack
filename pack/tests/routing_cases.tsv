@@ -1,0 +1,15 @@
+phrase	expect	skill	agent	role	kind	upstream
+raise an inventory extension for my borrowed prototype system	matched	x-inventory-extend	-	hardware	positive	none
+raise an inventory extension request for my borrowed silicon	matched	x-inventory-extend	-	pm	positive	none
+borrowed silicon is overdue, raise an inventory extension	matched	x-inventory-extend	-	validation	positive	none
+extend my inventory due dates	needs-clarification	bench-profile|x-inventory-extend	-	validation	ambiguous	none
+Intellabs inventory reminder says my prototype system is due, raise an inventory extension	needs-clarification	bench-profile|x-inventory-extend	-	hardware	ambiguous	none
+check my email for anything urgent	not	x-inventory-extend	-	any	negative	none
+create a Jira bug for the camera driver	not	x-inventory-extend	-	any	negative	none
+store my PAT encrypted in arya secrets	matched	x-inventory-secrets	-	validation	positive	none
+show which names are in my arya secrets	matched	x-inventory-secrets	-	cicd	positive	none
+list my arya secrets	matched	x-inventory-secrets	-	pm	positive	none
+list the token names in my arya_secrets.xml encrypted token file	needs-clarification	agent-shell-safety|artifactory-access|x-inventory-secrets	-	cicd	ambiguous	none
+add a new token to my arya secrets encrypted token file	needs-clarification	agent-shell-safety|wiki-access|x-inventory-secrets	-	pm	ambiguous	none
+check my email for anything urgent	not	x-inventory-secrets	-	any	negative	none
+read Jira issue NEXUIE-1	not	x-inventory-secrets	-	any	negative	none

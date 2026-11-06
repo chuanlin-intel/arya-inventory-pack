@@ -1,3 +1,4 @@
 # Open questions from the executor
 | # | Date | Step | Question | Options | Executor's suggestion | Answer (by A / reviewer) |
 |---|---|---|---|---|---|---|
+| Q1 | 2026-11-06 | 4b | The NEXUIE `Support Request` create screen marks `reporter` as required with no default (`has_default_value: false`). The Jira client refuses a create while a required field is missing (preview-only probe confirmed: `reporter (Reporter)` missing; every other configured value accepted, nothing dropped). D13 does not cover the reporter. | (a) The skill reads the login name (`account`) from its own `auth-check` output at run time and adds `--field reporter=<login>`; `build_ticket.py` gets `--reporter <login>`; `ticket_config.json` gets `"reporter": "token-owner"`; no personal value in tracked files. (b) Keep `"resolved": false`; skip step 10. | (a) | Owner: (a), 2026-11-06. `ticket_config.json` now `"resolved": true` with `"reporter": "token-owner"`. |

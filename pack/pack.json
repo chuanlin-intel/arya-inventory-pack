@@ -1,0 +1,9 @@
+{
+  "pack_format": 1,
+  "name": "inventory",
+  "version": "0.1.0",
+  "requires_schema": "1",
+  "description": "Extend Intellabs inventory due dates through one approved Jira request and store PATs with Windows DPAPI.",
+  "agents": [],
+  "skills": ["x-inventory-extend", "x-inventory-secrets"]
+}

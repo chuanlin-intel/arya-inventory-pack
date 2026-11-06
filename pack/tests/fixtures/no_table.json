@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "count": 1,
+  "emails": [
+    {
+      "id": "SYNTH-MSG-0041",
+      "subject": "Inventory notice",
+      "from": "Intellabs Support Services <Intellabs_Support_Services@example.com>",
+      "receivedDateTime": "2026-11-02T01:00:00Z",
+      "isRead": false,
+      "bodyType": "html",
+      "body": "<html><body><p>Your inventory list is empty.</p><table><tbody><tr><td><p>No items</p></td></tr></tbody></table></body></html>"
+    }
+  ]
+}

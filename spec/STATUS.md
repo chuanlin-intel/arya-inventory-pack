@@ -2,11 +2,12 @@
 Current step: 0 (not started). Last update: 2026-11-06 (spec written by session A).
 | Step | State | Result folder | Notes |
 |---|---|---|---|
-| 0 | not started | `C:\arya-inventory-pack` | |
+| 0 | not started | `C:\arya-inventory-pack\pack` | |
 | 1 | not started | | |
 | 2 | not started | `C:\arya-inventory-pack\local` | |
 | 3 | not started | | |
-| 4 | not started | | |
+| 4a | not started | | |
+| 4b | not started | | |
 | 5 | not started | | |
 | 6 | not started | | |
 | 7 | not started | | |

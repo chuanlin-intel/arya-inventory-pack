@@ -1,6 +1,6 @@
 ---
 name: x-inventory-extend
-description: "Extend the due date of borrowed lab inventory: read the unread Intellabs Support Services inventory due-date reminder emails of the last 14 days, list the items, and after one approval create one Jira extension request in NEXUIE and mark those reminders read. Windows only. PAT means personal access token."
+description: "Extend the due date of borrowed lab inventory: read the Intellabs Support Services inventory due-date reminder emails of the last 14 days (read and unread), list the items, and after one approval create one Jira extension request in NEXUIE and mark those reminders read. Windows only. PAT means personal access token."
 agent: chloe
 when_to_use: |
   - The user types /extend-inventories or asks to extend inventory due dates
@@ -34,7 +34,7 @@ platforms:
 
 ## Scope
 
-This skill turns the unread inventory reminder emails that the sender
+This skill turns the inventory reminder emails (read and unread) that the sender
 `Intellabs_Support_Services` sent in the last 14 days into ONE Jira ticket in the
 project NEXUIE that asks to extend the due date of every borrowed item named in them.
 It reads the mail (read only), lists every item with a number, lets the user drop
@@ -139,9 +139,9 @@ these values in a command: `build_ticket.py` reads them from the config.
    and the JSON has `success` and `signedIn` both the boolean `true`. Otherwise stop
    and tell the user to run `& "<full path of $m365>" auth login` themselves. Never
    run `auth login` for the user, never retry it.
-3. List the unread mail of the sender of the last 14 days:
+3. List all mail (read and unread) of the sender of the last 14 days:
    `$since = (Get-Date).ToUniversalTime().AddDays(-14).ToString('yyyy-MM-ddTHH:mm:ssZ')`, then
-   `& $m365 email get --folder inbox --from Intellabs_Support_Services --unread-only --since $since --top 50 --raw`.
+   `& $m365 email get --folder inbox --from Intellabs_Support_Services --since $since --top 50 --raw`.
    The output is an envelope `{"success", "count", "emails": [...]}`; continue only
    when `success` is `true`. If a page returns 50 messages, request the next page with
    the same command plus `--until <the earliest receivedDateTime of that page minus 1
@@ -188,7 +188,7 @@ read.
 ### (f) Nothing found
 
 If no message was listed, or both `items` and `skipped_emails` are empty, print
-"No inventory due-date reminders found in unread mail of the last 14 days." and stop.
+"No inventory due-date reminders found in the mail of the last 14 days." and stop.
 Create nothing and mark nothing read. Go to step (l).
 
 If `items` is empty but `skipped_emails` is not, list every skipped email (received

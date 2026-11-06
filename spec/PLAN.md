@@ -51,7 +51,7 @@ Each helper call in the test: `powershell.exe -NoProfile -ExecutionPolicy Bypass
 ### Step 2
 Read only; B itself (confidential data).
 1. D7 sign-in check. If not signed in: if-then rule.
-2. D7 list command (F6 pagination). If empty: if-then rule (180 days, without `--unread-only`).
+2. D7 list command (F6 pagination). If empty: if-then rule (180 days).
 3. Record the JSON shape of the list output (top-level list, object, or an envelope key such as the one actually seen).
 4. Bodies of every listed reminder, in batches of at most 10 ids (D7). Save all of them, combined into one JSON list, with UTF-8 without BOM to `<local>\messages.json`.
 5. Record in STATUS.md section "Mail structure notes" (no real values): JSON envelope and keys of one message (sender path, received time key, body path, body content type), table header cells in order, number of header rows, whether a block repeats, the due-date format, the `New Borrower` line format, the subject patterns.
@@ -93,7 +93,7 @@ Follow PACKS.md 14.1 steps 1-3 with these exact values.
 `<pack>\skills\x-inventory-extend\SKILL.md` frontmatter:
 ```
 name: x-inventory-extend
-description: "Extend the due date of borrowed lab inventory: read the unread Intellabs Support Services inventory due-date reminder emails of the last 14 days, list the items, and after one approval create one Jira extension request in NEXUIE and mark those reminders read. Windows only. PAT means personal access token."
+description: "Extend the due date of borrowed lab inventory: read the Intellabs Support Services inventory due-date reminder emails of the last 14 days (read and unread), list the items, and after one approval create one Jira extension request in NEXUIE and mark those reminders read. Windows only. PAT means personal access token."
 agent: chloe
 when_to_use: |
   - The user types /extend-inventories or asks to extend inventory due dates

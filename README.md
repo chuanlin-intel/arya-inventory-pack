@@ -70,7 +70,8 @@ never with `-Recurse`).
 ## Use it
 
 Type `/extend-inventories` in Copilot CLI, or ask Arya "extend my inventory due dates".
-The skill lists every borrowed item from the unread reminders of the last 14 days, lets
+The skill lists every borrowed item from the reminders of the last 14 days (read and
+unread), lets
 you drop items and add a reason, and shows one preview. Nothing is written to Jira or to
 your mailbox until you type yes to that preview.
 

@@ -6,7 +6,7 @@ Plan approved by: Tneoh, Chuan Lin, 2026-11-06.
 Engineers receive "Inventory Due in N Days" reminder emails from Intellabs Support Services
 and today create a Jira ticket by hand to ask for a due-date extension. Build an Arya
 extension pack inside the git repo `C:\arya-inventory-pack` with two skills:
-`x-inventory-extend` reads the unread reminder emails of the last 14 days, lists every
+`x-inventory-extend` reads the reminder emails (read and unread) of the last 14 days, lists every
 borrowed item, drafts ONE Jira ticket in project NEXUIE for all chosen items, and after ONE
 approval by the user creates the ticket and marks those emails read; `x-inventory-secrets`
 keeps personal access tokens (PATs) in one DPAPI-encrypted file

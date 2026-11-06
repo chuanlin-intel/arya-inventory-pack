@@ -3,8 +3,11 @@
 
 Usage: parse_due_mail.py --input <messages.json> --output <items.json>
 
-Input: a list of messages, one message object, or the envelope
-{"success": .., "count": .., "emails": [...]} of the m365 client.
+Input: a list of messages, one message object, the envelope
+{"success": .., "count": .., "emails": [...]} of the m365 client, or its
+single-message envelope {"success": .., "email": {...}}. A list may mix
+messages and envelopes. A message is an object with "id" and any of "from",
+"subject", "receivedDateTime", "body". Any other shape is an error (exit 2).
 Output (UTF-8, no BOM): {"items": [...], "emails": [...], "skipped_emails": [...]}.
 """
 
@@ -345,15 +348,37 @@ def parse_message(msg):
     return rows, borrower, None
 
 
+MESSAGE_KEYS = ("from", "subject", "receivedDateTime", "body")
+
+
+def is_message(data):
+    return "id" in data and any(k in data for k in MESSAGE_KEYS)
+
+
+def messages_of(data):
+    """Messages of one JSON object: an envelope or a single message."""
+    if isinstance(data.get("emails"), list):
+        return data["emails"]
+    if isinstance(data.get("value"), list):
+        return data["value"]
+    if isinstance(data.get("email"), dict):
+        return [data["email"]]
+    if is_message(data):
+        return [data]
+    raise ValueError("input JSON object is not a message, an 'emails' envelope "
+                     "or an 'email' envelope (keys: %s)" % ", ".join(sorted(data)))
+
+
 def load_messages(data):
     if isinstance(data, dict):
-        if isinstance(data.get("emails"), list):
-            return data["emails"]
-        if isinstance(data.get("value"), list):
-            return data["value"]
-        return [data]
+        return messages_of(data)
     if isinstance(data, list):
-        return data
+        messages = []
+        for pos, element in enumerate(data, 1):
+            if not isinstance(element, dict):
+                raise ValueError("list element %d is not a JSON object" % pos)
+            messages.extend(messages_of(element))
+        return messages
     raise ValueError("input JSON is neither a list nor an object")
 
 

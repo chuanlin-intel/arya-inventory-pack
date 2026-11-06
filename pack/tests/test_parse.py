@@ -146,6 +146,67 @@ class ParseDueMailTest(unittest.TestCase):
         result = parse_due_mail.run(parse_due_mail.load_messages(msg))
         self.assertEqual(len(result["items"]), 3)
 
+    def fixture_message(self):
+        with open(os.path.join(FIXTURES, "due_7_days.json"), encoding="utf-8") as fh:
+            return json.load(fh)["emails"][0]
+
+    def test_single_email_envelope(self):
+        envelope = {"success": True, "email": self.fixture_message()}
+        proc, result = self.run_cli(self.write_input(envelope))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual([i["serial"] for i in result["items"]],
+                         ["SYNTH0000001", "SYNTH0000002", "SYNTH0000003"])
+        self.assertEqual([e["id"] for e in result["emails"]], ["SYNTH-MSG-0001"])
+
+    def test_bare_address_sender(self):
+        msg = self.fixture_message()
+        msg["from"] = "INTELLABS_SUPPORT_SERVICES@example.com"
+        proc, result = self.run_cli(self.write_input([msg]))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(len(result["items"]), 3)
+        self.assertEqual(result["emails"][0]["sender"],
+                         "INTELLABS_SUPPORT_SERVICES@example.com")
+
+    def test_unknown_object_exits_2(self):
+        proc, result = self.run_cli(self.write_input({"success": True, "message": {}}))
+        self.assertEqual(proc.returncode, 2)
+        self.assertIsNone(result)
+        self.assertIn("not a message", proc.stderr)
+
+    def test_envelopes_inside_list(self):
+        first = self.fixture_message()
+        second = self.fixture_message()
+        second["id"] = "SYNTH-MSG-0002"
+        for row, serial in enumerate(["SYNTH0000001", "SYNTH0000002", "SYNTH0000003"], 4):
+            second["body"] = second["body"].replace(serial, "SYNTH000000%d" % row)
+        data = [{"success": True, "count": 1, "emails": [first]},
+                {"success": True, "email": second}]
+        proc, result = self.run_cli(self.write_input(data))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual([e["id"] for e in result["emails"]],
+                         ["SYNTH-MSG-0001", "SYNTH-MSG-0002"])
+        self.assertEqual([i["serial"] for i in result["items"]],
+                         ["SYNTH0000001", "SYNTH0000002", "SYNTH0000003",
+                          "SYNTH0000004", "SYNTH0000005", "SYNTH0000006"])
+
+    def test_message_without_body_is_skipped(self):
+        msg = self.fixture_message()
+        del msg["body"]
+        for obj in (msg, {"success": True, "email": msg}):
+            proc, result = self.run_cli(self.write_input(obj))
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(result["items"], [])
+            self.assertEqual(result["emails"], [])
+            self.assertEqual([s["id"] for s in result["skipped_emails"]], ["SYNTH-MSG-0001"])
+            self.assertEqual(result["skipped_emails"][0]["reason"], "no inventory table found")
+
+    def test_error_envelopes_exit_2(self):
+        for obj in ({"success": False}, {"success": True, "emails": None},
+                    [{"success": False}]):
+            proc, result = self.run_cli(self.write_input(obj))
+            self.assertEqual(proc.returncode, 2, obj)
+            self.assertIsNone(result)
+
 
 if __name__ == "__main__":
     unittest.main()

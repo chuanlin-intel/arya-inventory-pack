@@ -5,6 +5,29 @@
   "summary": "Extend inventory due date",
   "priority": "P3-Medium",
   "components": ["Labops : Inventory Management"],
-  "fields": {"customfield_18201": "Extend Inventory Due Date"},
-  "reporter": "token-owner"
+  "fields": {"customfield_18201": "Extend Inventory Due Date", "customfield_11119": "Linux"},
+  "reporter": "token-owner",
+  "location": {
+    "field": "customfield_17602",
+    "allowed": ["Bangalore", "Penang", "Hyderabad", "Oregon", "Shannon", "Chandler", "Kulim", "Gdansk", "Shanghai", "Beijing", "Chengdu", "Folsom"]
+  },
+  "platform": {
+    "field": "customfield_10700",
+    "default": "Not Applicable",
+    "rules": [
+      {"pattern": "\\b(?:nova\\s*lake|nvl)\\b[\\s-]*(?:pch[\\s-]*)?(?:hx)\\b", "value": "NVL-HX"},
+      {"pattern": "\\b(?:nova\\s*lake|nvl)\\b[\\s-]*(?:pch[\\s-]*)?(?:uph)\\b", "value": "NVL-UPH"},
+      {"pattern": "\\b(?:nova\\s*lake|nvl)\\b[\\s-]*(?:pch[\\s-]*)?(?:ax/am|am/ax|ax|am)\\b", "value": "NVL-AX/AM"},
+      {"pattern": "\\b(?:nova\\s*lake|nvl)\\b[\\s-]*(?:pch[\\s-]*)?(?:s)\\b", "value": "NVL-S"},
+      {"pattern": "\\b(?:meteor\\s*lake|mtl)\\b[\\s-]*(?:pch[\\s-]*)?(?:ps)\\b", "value": "MTL-PS"},
+      {"pattern": "\\b(?:meteor\\s*lake|mtl)\\b[\\s-]*(?:pch[\\s-]*)?(?:p)\\b", "value": "MTL-P"},
+      {"pattern": "\\b(?:meteor\\s*lake|mtl)\\b[\\s-]*(?:pch[\\s-]*)?(?:s)\\b", "value": "MTL-S"},
+      {"pattern": "\\b(?:arrow\\s*lake|arl)\\b[\\s-]*(?:pch[\\s-]*)?(?:s)\\b", "value": "ARL-S"},
+      {"pattern": "\\b(?:arrow\\s*lake|arl)\\b[\\s-]*(?:pch[\\s-]*)?(?:u/h|h/u|u|h)\\b", "value": "ARL-U/H"},
+      {"pattern": "\\b(?:alder\\s*lake|adl)\\b[\\s-]*(?:pch[\\s-]*)?(?:n)\\b", "value": "ADL-N"},
+      {"pattern": "\\b(?:alder\\s*lake|adl)\\b[\\s-]*(?:pch[\\s-]*)?(?:ps)\\b", "value": "ADL-PS"},
+      {"pattern": "\\b(?:alder\\s*lake|adl)\\b[\\s-]*(?:pch[\\s-]*)?(?:p)\\b", "value": "ADL-P"},
+      {"pattern": "\\b(?:alder\\s*lake|adl)\\b[\\s-]*(?:pch[\\s-]*)?(?:s)\\b", "value": "ADL-S"}
+    ]
+  }
 }

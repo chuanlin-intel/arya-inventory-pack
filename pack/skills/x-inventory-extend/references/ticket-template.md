@@ -18,11 +18,17 @@ Jira field catalogue of the project:
 | Summary | `summary` of the config (Extend inventory due date) | `--summary` |
 | Priority | `priority` of the config (a P3 priority) | `--priority` |
 | Components | each name in `components` of the config (the Labops inventory management component) | `--component` |
-| Sub-component | each entry of `fields` of the config (a custom field id and the "extend inventory due date" value) | `--field <id>=<value>` |
+| Sub-component | the `customfield_18201` entry of `fields` of the config (the "extend inventory due date" value) | `--field <id>=<value>` |
+| Operating System/s | the `customfield_11119` entry of `fields` of the config: the fixed value `Linux` for every ticket | `--field customfield_11119=Linux` |
 | Reporter | the login name of the token owner, read at run time from `auth-check` (config value `token-owner`); never stored in a file of the pack | `--field reporter=<account>` |
+| Platform/s | suggested from the models of the kept items by the `platform` rules of the config (`Not Applicable` when no rule matches); the user may change the values in the approval answer | `--field customfield_10700=<v1>,<v2>` |
+| Location | asked from the user in each run: one value of the `allowed` list of the `location` entry of the config (matched in any letter case, written in the spelling of the config); the user's own environment variable `ARYA_INVENTORY_LOCATION`, when set to an allowed value, is proposed as the default | `--field customfield_17602=<value>` (from `--location`) |
 | Description | the text below, from `description.txt` in the run folder | `--description-file` |
 
-The ticket has no assignee, no labels and no new due date. A reason is added only when
+The ticket has no assignee, no labels and no new due date. Business Unit, Customer
+Impact, Time saving, Due Date and Target Date stay empty. Location and Operating
+System/s are set on every ticket because the NEXUIE create screen requires them. A
+reason is added only when
 the user gives one. When `resolved` in the config is not `true`, the skill stops with
 "Jira fields for NEXUIE are not configured yet" before any Jira preview.
 

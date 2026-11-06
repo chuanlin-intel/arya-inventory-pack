@@ -211,6 +211,128 @@ class BuildTicketTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(json.loads(proc.stdout)[-2:], ["--field", "reporter=jdoe"])
 
+    def platform_config(self):
+        with open(CONFIG, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        with open(os.path.join(SCRIPTS, "ticket_config.json"), encoding="utf-8") as fh:
+            cfg["platform"] = json.load(fh)["platform"]
+        return self.write_json("cfg_platform.json", cfg)
+
+    def platform_arg(self, proc):
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        args = json.loads(proc.stdout)
+        found = [a for a in args if a.startswith("customfield_10700=")]
+        self.assertEqual(len(found), 1, args)
+        self.assertEqual(args[args.index(found[0]) - 1], "--field")
+        return found[0].split("=", 1)[1]
+
+    def test_platform_suggested_from_models_in_item_order(self):
+        items = self.write_json("i.json", {"items": [
+            item("SYNTH1", model="Nova Lake, DDR5, CRB, Pre PRQ - N00000-000"),
+            item("SYNTH2", model="NOVA LAKE HX PRODUCT - 00 XXXXXX X"),
+            item("SYNTH3", model="NOVA LAKE PCH-S PRODUCT - 00 XXXXXX X"),
+            item("SYNTH4", model="NOVA LAKE HX PRODUCT - 11 XXXXXX X"),
+            item("SYNTH5", model="SHXNOVA LAKEHX")],
+            "emails": [], "skipped_emails": []})
+        proc = self.build(items, config=self.platform_config())
+        self.assertEqual(self.platform_arg(proc), "NVL-HX,NVL-S")
+        self.assertEqual(self.read("platforms.txt").strip(), "NVL-HX,NVL-S")
+        preview = self.read("preview.txt")
+        self.assertIn("Platform/s (customfield_10700): NVL-HX, NVL-S", preview)
+        self.assertIn("Suggested from the item models; you may change them", preview)
+        self.assertIn("item 1 (SYNTH1): -", preview)
+        self.assertIn("item 3 (SYNTH3): NVL-S", preview)
+        self.assertIn("item 5 (SYNTH5): -", preview)
+
+    def test_platform_fixture_and_drop(self):
+        items = self.fixture_items()
+        cfg = self.platform_config()
+        self.assertEqual(self.platform_arg(self.build(items, config=cfg)), "NVL-S,NVL-HX")
+        self.assertEqual(self.platform_arg(self.build(items, "--drop", "2", config=cfg)),
+                         "NVL-HX")
+        self.assertNotIn("item 2 ", self.read("preview.txt"))
+
+    def test_platform_default_when_no_rule_matches(self):
+        items = self.write_json("i.json", {"items": [item("SYNTH1", model="Nova Lake, CRB")],
+                                           "emails": [], "skipped_emails": []})
+        proc = self.build(items, config=self.platform_config())
+        self.assertEqual(self.platform_arg(proc), "Not Applicable")
+
+    def test_platform_option_overrides(self):
+        proc = self.build(self.fixture_items(), "--platform", " MTL-P, ,NVL-AX/AM,MTL-P ",
+                          config=self.platform_config())
+        self.assertEqual(self.platform_arg(proc), "MTL-P,NVL-AX/AM")
+        self.assertEqual(self.read("platforms.txt").strip(), "MTL-P,NVL-AX/AM")
+        preview = self.read("preview.txt")
+        self.assertIn("Platform/s (customfield_10700): MTL-P, NVL-AX/AM", preview)
+        self.assertNotIn("Suggested from the item models", preview)
+
+    def test_invalid_platform_exits_2(self):
+        items = self.fixture_items()
+        cfg = self.platform_config()
+        for bad in ("NVL;rm", "a" * 65, " , ", "x=y"):
+            proc = self.build(items, "--platform", bad, config=cfg)
+            self.assertEqual(proc.returncode, 2, bad)
+
+    def test_no_platform_config_no_platform_field(self):
+        proc = self.build(self.fixture_items(), "--platform", "NVL-S")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertFalse(any("customfield_10700" in a for a in json.loads(proc.stdout)))
+        self.assertFalse(os.path.exists(os.path.join(self.out, "platforms.txt")))
+        self.assertNotIn("Platform/s", self.read("preview.txt"))
+
+    def location_config(self):
+        with open(CONFIG, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        cfg["location"] = {"field": "customfield_88888", "allowed": ["Testville", "Fakecity"]}
+        return self.write_json("cfg_location.json", cfg)
+
+    def test_location_required_when_configured(self):
+        items = self.fixture_items()
+        cfg = self.location_config()
+        for extra in ([], ["--location", " "]):
+            proc = self.build(items, *extra, config=cfg)
+            self.assertEqual(proc.returncode, 2, extra)
+            self.assertIn("--location is required: one of Testville, Fakecity", proc.stderr)
+            self.assertFalse(os.path.exists(self.out))
+
+    def test_location_case_insensitive_uses_allowed_spelling(self):
+        proc = self.build(self.fixture_items(), "--location", " fAKEciTY ",
+                          "--reporter", "jdoe", config=self.location_config())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        args = json.loads(proc.stdout)
+        self.assertEqual(args[-4:], ["--field", "customfield_88888=Fakecity",
+                                     "--field", "reporter=jdoe"])
+        self.assertIn("Location (customfield_88888): Fakecity", self.read("preview.txt"))
+
+    def test_invalid_location_exits_2(self):
+        items = self.fixture_items()
+        cfg = self.location_config()
+        for bad in ("Nowhere", "Testvill", "Testville,Fakecity"):
+            proc = self.build(items, "--location", bad, config=cfg)
+            self.assertEqual(proc.returncode, 2, bad)
+            self.assertIn("Testville, Fakecity", proc.stderr)
+
+    def test_no_location_config_ignores_location(self):
+        proc = self.build(self.fixture_items(), "--location", "Nowhere")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertFalse(any("customfield_88888" in a for a in json.loads(proc.stdout)))
+        self.assertNotIn("Location", self.read("preview.txt"))
+
+    def test_shipped_config_location_and_os_fields(self):
+        cfg = os.path.join(SCRIPTS, "ticket_config.json")
+        items = self.fixture_items()
+        self.assertEqual(self.build(items, "--reporter", "jdoe", config=cfg).returncode, 2)
+        proc = self.build(items, "--reporter", "jdoe", "--location", "penang", config=cfg)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        args = json.loads(proc.stdout)
+        self.assertIn("customfield_11119=Linux", args)
+        self.assertEqual(args[-4:], ["--field", "customfield_17602=Penang",
+                                     "--field", "reporter=jdoe"])
+        preview = self.read("preview.txt")
+        self.assertIn("Location (customfield_17602): Penang", preview)
+        self.assertIn("customfield_11119=Linux", preview)
+
 
 if __name__ == "__main__":
     unittest.main()

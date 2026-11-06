@@ -87,9 +87,16 @@ Read `$tools\ticket_config.json`. If `resolved` is not `true`, print
 `Jira fields for NEXUIE are not configured yet` and stop before any Jira preview or
 create. The config holds the project, issue type, summary, priority, components and
 custom fields of the ticket (for example priority `P3-Medium`, component
-`Labops : Inventory Management`, and `customfield_18201`, Sub-Component/s, with the
-value `Extend Inventory Due Date`), and `"reporter": "token-owner"`. Never hard-code
-these values in a command: `build_ticket.py` reads them from the config.
+`Labops : Inventory Management`, `customfield_18201`, Sub-Component/s, with the
+value `Extend Inventory Due Date`, and `customfield_11119`, Operating System/s, with
+the fixed value `Linux` for every ticket), and `"reporter": "token-owner"`. Its
+`location` entry names the Location field (`customfield_17602`, required by the
+NEXUIE create screen) and the list of `allowed` values; the user chooses one in step
+(g). Its `platform`
+entry names the Platform/s field (`customfield_10700`, a required multi-select), its
+default value `Not Applicable`, and an ordered list of rules (a case-insensitive
+regular expression on the item model and the Platform/s value it suggests). Never
+hard-code these values in a command: `build_ticket.py` reads them from the config.
 
 ### (c) Find the Jira token and prove it
 
@@ -132,7 +139,8 @@ these values in a command: `build_ticket.py` reads them from the config.
    `$run = Join-Path $env:LOCALAPPDATA ('arya-inventory\runs\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))`,
    then `New-Item -ItemType Directory -Path $run`. Every file of this run goes there:
    `list.json`, `messages.json`, `items.json`, `description.txt`, `preview.txt`,
-   `mark_read_ids.txt`, `reason.txt`. Write files with UTF-8 without a byte-order mark
+   `mark_read_ids.txt`, `reason.txt`, `platforms.txt`, `create_output.txt`. Write
+   files with UTF-8 without a byte-order mark
    (`[IO.File]::WriteAllText($path, $text, [Text.UTF8Encoding]::new($false))`; never
    `>` or `Out-File`).
 2. Sign-in check: `& $m365 auth whoami --raw`. Continue only when the exit code is 0
@@ -147,33 +155,33 @@ these values in a command: `build_ticket.py` reads them from the config.
    the same command plus `--until <the earliest receivedDateTime of that page minus 1
    second, yyyy-MM-ddTHH:mm:ssZ>`, until a page returns fewer than 50. Merge the
    pages, remove duplicate message ids, and save the merged list to `$run\list.json`.
-4. Keep only messages whose `from` value (a string of the display name and the address
-   in angle brackets) has the address part before `@` equal to
-   `intellabs_support_services`, ignoring letter case. Checkout notices ("The following
+4. Keep only messages whose `from` address has the part before `@` equal to
+   `intellabs_support_services`, ignoring letter case. The `from` value is either
+   `Name <address>` or a bare address: take the part in angle brackets when there is
+   one, else the whole value. Checkout notices ("The following
    inventory was checked out to ... today") come from the same sender and are kept:
    the parser reads them too.
 5. If no message is left, go to step (f).
 6. Fetch the bodies in batches of at most 10 ids:
-   `& $m365 email get --id <id1>,<id2>,...,<id10> --raw`, once per batch, each result
-   saved raw to `$run\body_<n>.json`. Each result is the same envelope; continue only
-   when `success` is `true`. Combine the `emails` lists of every batch into one list in
-   `$run\messages.json`:
+   `$raw = & $m365 email get --id <id1>,<id2>,...,<id10> --raw`, once per batch. With
+   several ids the result is `{"success", "count", "emails": [...]}`; with one id it is
+   `{"success": true, "email": {...}}` (singular). Continue only when `success` is
+   `true` in every batch. Keep each batch's raw output as one string in a list, then
+   write all of them as one JSON list of envelopes to `$run\messages.json`; the parser
+   accepts a list that mixes `emails` and `email` envelopes:
 
    ```powershell
-   @'
-   import json, sys
-   out = []
-   for p in sys.argv[2:]:
-       with open(p, encoding="utf-8-sig") as fh:
-           data = json.load(fh)
-       out.extend(data["emails"] if isinstance(data, dict) else data)
-   with open(sys.argv[1], "w", encoding="utf-8") as fh:
-       json.dump(out, fh)
-   '@ | py -3 - "$run\messages.json" (Get-ChildItem "$run\body_*.json").FullName
+   $batches = @()   # before the first batch
+   # after each batch: the exit code is 0 and success is the boolean true, else stop
+   $code = $LASTEXITCODE
+   $text = $raw -join "`n"
+   try { $envl = $text | ConvertFrom-Json -ErrorAction Stop } catch { <stop> }
+   if ($code -ne 0 -or $envl.success -ne $true) { <stop> }
+   $batches += $text
+   # after the last batch
+   if ($batches.Count -lt 1) { <stop> }
+   [IO.File]::WriteAllText("$run\messages.json", '[' + ($batches -join ',') + ']', [Text.UTF8Encoding]::new($false))
    ```
-
-   With one batch only, the envelope file may also be passed to the parser directly:
-   the parser accepts a list, one message object or the envelope.
 
 ### (e) Parse the emails
 
@@ -205,14 +213,34 @@ the user which numbers to drop, if any (no answer means: keep all items), and wh
 to add a reason to the ticket. Write a reason, exactly as the user typed it, to
 `$run\reason.txt` (UTF-8 without a byte-order mark).
 
+Also ask the user for the Location of the ticket: one value of the `allowed` list of
+the `location` entry of the config, shown in full. If the user's environment variable
+`ARYA_INVENTORY_LOCATION` is set (it is not secret; read `$env:ARYA_INVENTORY_LOCATION`,
+and when that is empty `[Environment]::GetEnvironmentVariable('ARYA_INVENTORY_LOCATION','User')`,
+which also sees a value set after this session started; check that it is present and that
+its value equals one of the allowed values, ignoring letter case), propose that value
+as the default; the user may choose another one. Never set, change or delete this
+variable. Keep the chosen value as `$location`. Platform/s is suggested from the
+item models in step (h) and shown in the preview of step (i), where the user may
+change it.
+
 ### (h) Build the ticket
 
 ```powershell
-$out = py -3 $tools\build_ticket.py --items $run\items.json --config $tools\ticket_config.json --out-dir $run --reporter $account [--drop 2,5] [--reason-file $run\reason.txt]
+$out = py -3 $tools\build_ticket.py --items $run\items.json --config $tools\ticket_config.json --out-dir $run --reporter $account --location "$location" [--drop 2,5] [--reason-file $run\reason.txt] [--platform "<values>"]
 ```
 
-Add `--drop` only when the user dropped items and `--reason-file` only when there is a
-reason. Exit 2 means that the config is not resolved or an argument is wrong: stop and
+Add `--drop` only when the user dropped items, `--reason-file` only when there is a
+reason, and `--platform "<v1>,<v2>"` only when the user changed the Platform/s values
+in step (i) (the values exactly as the user gave them, comma-separated). Without
+`--platform` the script suggests Platform/s from the models of the kept items with the
+rules of the config (first matching rule per item, unique values in item order;
+`Not Applicable` when no rule matches). It writes the chosen values to
+`$run\platforms.txt` and adds `--field customfield_10700=<v1>,<v2>` to the create
+arguments. `--location` is required because the config has a `location` entry: the
+script accepts only an allowed value (any letter case), uses the spelling of the
+config, and adds `--field customfield_17602=<Location>` to the create arguments.
+Exit 2 means that the config is not resolved or an argument is wrong: stop and
 show the message. Exit 1 means that every item was dropped: stop. On exit 0 the script
 wrote `description.txt`, `mark_read_ids.txt` and `preview.txt` into `$run` and printed
 the create arguments as one JSON list, without `--yes`:
@@ -229,30 +257,51 @@ the create arguments as one JSON list, without `--yes`:
    - there is no `--- values dropped` section;
    - the JSON after `--- exactly what will be sent ---` contains the priority of the
      config, every component of the config, every custom field id of the config with
-     its value, and `reporter` with the account of step (c).
+     its value (including `customfield_11119`, Operating System/s, with `Linux`),
+     `customfield_10700` with the chosen Platform/s values of `$run\platforms.txt`,
+     `customfield_17602` with the current `$location`, and `reporter` with the
+     account of step (c).
 
    Otherwise stop with "Jira rejected a configured field value; the NEXUIE field
    config needs updating", and do not ask for approval.
 3. Show ONE preview to the user: the full text of `$run\preview.txt` (items, dropped
-   items, ticket fields, description, the emails to be marked read with id, sender,
-   subject and received time, and the skipped emails), then the client preview exactly
-   as printed, then the two commands that a yes will run:
+   items, ticket fields with the Platform/s values and, when they were suggested, the
+   value each item suggested, the Location, the Operating System/s field, description, the emails to be marked read with id,
+   sender, subject and received time, and the skipped emails), then the client preview
+   exactly as printed, then the two commands that a yes will run:
    - the create command with `$createArgs` plus `--yes` (the token is never shown);
    - `& $m365 email mark-read --ids <the content of mark_read_ids.txt>`, or "no email
      will be marked read" when the file is empty.
-4. Ask for a typed yes to that exact preview. Any change (another drop, a reason, a
-   new account) means: build again (step h), preview again, and a new yes. A no, or
+4. Tell the user the Platform/s values shown (suggested from the item models, or set
+   earlier) and that they may change them in their answer, for example "yes" or
+   "Platform/s: NVL-S, NVL-HX". Name the Location of the preview too; the user may
+   change it in the answer, for example "Location: Kulim". Ask for a typed yes to that
+   exact preview. Any change (another drop, a reason, a new account, other Platform/s
+   values, another Location) means: build again (step h, with `--platform "<values>"`
+   for changed Platform/s; for a changed Location first set `$location` to the new
+   value, then build with `--location "$location"`), preview
+   again, and a new yes. A no, or
    any answer that is not a yes: stop; nothing is written. Go to step (l).
 
 ### (j) Create the ticket, then mark the emails read
 
 Only after the typed yes to the exact preview of step (i):
 
-1. Run the same command once with `--yes` added (`py -3 $jira @createArgs --yes`, or
-   form B). Never retry it.
+1. Run the same command once with `--yes` added, and capture its full output, standard
+   output and standard error:
+   `$created = py -3 $jira @createArgs --yes 2>&1 | ForEach-Object { "$_" }` (or
+   form B with `2>&1` the same way), then write the lines of `$created`, joined with
+   line breaks, to `$run\create_output.txt` (UTF-8 without a byte-order mark). Never
+   retry it.
 2. Read the key from its JSON output `{"created": <key>, "id", "browse_url"}`. If the
-   command failed, timed out or printed no key, report "creation outcome unknown;
-   check NEXUIE before running again", mark no mail read, and go to step (l).
+   command failed, timed out or printed no key, show every line of
+   `$run\create_output.txt` that starts with `ERROR:`, report "creation outcome
+   unknown; check NEXUIE before running again", mark no mail read, and go to step (l).
+   If the client error is HTTP 400 naming a required field (for example
+   "Platform/s - Field is required." or "Location - Field is required."), show the
+   full client `ERROR:` line, create nothing more, and say that the NEXUIE field config
+   (`ticket_config.json`) needs that field. Then stop. Never retry the create
+   automatically (D32).
 3. If `mark_read_ids.txt` is empty, skip this item. Otherwise run
    `& $m365 email mark-read --ids <the content of mark_read_ids.txt>`, then read back
    `& $m365 email get --id <the same ids, at most 10 per call> --raw` and check that
@@ -274,7 +323,7 @@ When the run ends, on success, on a stop, on a refusal or on an error:
 
 | Action | What is written, and where | Preview shown before approval | Approval required |
 |---|---|---|---|
-| Create the extension ticket and mark the reminders read (one approval) | One new issue in the Jira project NEXUIE with the fields of `ticket_config.json`, the reporter and the description; then the listed reminder emails in the user's inbox are marked read | `preview.txt` (items, ticket fields, full description, each email to be marked read with id, sender, subject and received time, skipped emails), the client preview of `create` without `--yes`, the exact create command (token not shown) and the exact `email mark-read --ids` command | The user types yes to that exact preview in this conversation; one yes covers the create and then the mark-read; any change of items, reason or field needs a new preview and a new yes |
+| Create the extension ticket and mark the reminders read (one approval) | One new issue in the Jira project NEXUIE with the fields of `ticket_config.json`, the reporter and the description; then the listed reminder emails in the user's inbox are marked read | `preview.txt` (items, ticket fields including the Platform/s values and how they were suggested, the Location and the Operating System/s field, full description, each email to be marked read with id, sender, subject and received time, skipped emails), the client preview of `create` without `--yes`, the exact create command (token not shown) and the exact `email mark-read --ids` command | The user types yes to that exact preview in this conversation; one yes covers the create and then the mark-read; any change of items, reason, Location or field needs a new preview and a new yes |
 | Store a Jira token with the token window | The entry `JIRA_PAT` in the DPAPI-encrypted file `%USERPROFILE%\.arya_secrets.xml` | The one-line question to open the window, the exact `Start-Process` command and the manual `set` command | The user says yes to opening the window and types the token only into that window, never into the chat |
 | Decrypt the token for this session | Nothing is written; `JIRA_PAT` is decrypted into the environment of one Jira client process at a time | The question "Read JIRA_PAT from your encrypted file %USERPROFILE%\.arya_secrets.xml for this session?" | The user says yes once per session before the first form B command |
 

@@ -2,7 +2,11 @@
 
 Reads items.json (from parse_due_mail.py) and ticket_config.json, writes
 description.txt, mark_read_ids.txt and preview.txt into --out-dir, and prints
-the create arguments (without --yes) as one JSON list on stdout.
+the create arguments (without --yes) as one JSON list on stdout. When the config
+has a "platform" entry, it also writes platforms.txt: the --platform values, or
+the values suggested from the item models by the config rules. When the config
+has a "location" entry, --location is required and must be one of its allowed
+values (any letter case).
 """
 import argparse
 import json
@@ -13,6 +17,8 @@ import sys
 LINE1 = "Please extend the due date of the following inventory items."
 HEADER = "||#||Serial number||Model||Type||HVPIP||Return To||Current due date||"
 REPORTER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+PLATFORM_RE = re.compile(r"^[A-Za-z0-9 :/()._+-]{1,64}$")
+FIELD_ID_RE = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 
 
 def fail(msg, code):
@@ -64,6 +70,88 @@ def hvpip(item):
     return "Yes" if item.get("ip_type", "") == "HVPIP" else "No"
 
 
+def check_platform(value, what):
+    if not isinstance(value, str) or not PLATFORM_RE.match(value):
+        fail("invalid %s %r: use 1 to 64 letters, digits, spaces or :/()._+-"
+             % (what, value), 2)
+    return value
+
+
+def unique(values):
+    out = []
+    for value in values:
+        if value not in out:
+            out.append(value)
+    return out
+
+
+def load_platform(config):
+    """Return (field id, default, [(compiled regex, value)]) or None."""
+    plat = config.get("platform")
+    if plat is None:
+        return None
+    if not isinstance(plat, dict):
+        fail("invalid platform entry in the config", 2)
+    field = plat.get("field")
+    if not isinstance(field, str) or not FIELD_ID_RE.match(field):
+        fail("invalid platform field id in the config", 2)
+    default = check_platform(plat.get("default"), "platform default")
+    rules = []
+    for rule in plat.get("rules") or []:
+        if not isinstance(rule, dict):
+            fail("invalid platform rule in the config", 2)
+        try:
+            regex = re.compile(str(rule.get("pattern")), re.IGNORECASE)
+        except re.error as exc:
+            fail("invalid platform rule pattern %r: %s"
+                 % (rule.get("pattern"), exc), 2)
+        rules.append((regex, check_platform(rule.get("value"),
+                                            "platform rule value")))
+    return field, default, rules
+
+
+def load_location(config):
+    """Return (field id, [allowed values]) or None."""
+    loc = config.get("location")
+    if loc is None:
+        return None
+    if not isinstance(loc, dict):
+        fail("invalid location entry in the config", 2)
+    field = loc.get("field")
+    if not isinstance(field, str) or not FIELD_ID_RE.match(field):
+        fail("invalid location field id in the config", 2)
+    allowed = loc.get("allowed")
+    if not isinstance(allowed, list) or not allowed:
+        fail("invalid location allowed list in the config", 2)
+    return field, [check_platform(v, "location allowed value") for v in allowed]
+
+
+def choose_location(value, allowed):
+    names = ", ".join(allowed)
+    if value is None or not value.strip():
+        fail("--location is required: one of %s" % names, 2)
+    wanted = value.strip().lower()
+    for name in allowed:
+        if name.lower() == wanted:
+            return name
+    fail("invalid --location %r: use one of %s" % (value, names), 2)
+
+
+def suggest_platform(model, rules):
+    text = "" if model is None else str(model)
+    for regex, value in rules:
+        if regex.search(text):
+            return value
+    return None
+
+
+def parse_platform_option(text):
+    values = unique(part.strip() for part in text.split(",") if part.strip())
+    if not values:
+        fail("invalid --platform: give at least one value", 2)
+    return [check_platform(v, "--platform value") for v in values]
+
+
 def build_description(chosen, reason):
     borrowers = sorted({esc(i.get("borrower")) for i in chosen
                         if str(i.get("borrower") or "").strip()})
@@ -87,11 +175,21 @@ def main(argv=None):
     ap.add_argument("--drop")
     ap.add_argument("--reason-file")
     ap.add_argument("--reporter")
+    ap.add_argument("--platform")
+    ap.add_argument("--location")
     args = ap.parse_args(argv)
 
     config = load_json(args.config, "config")
     if not isinstance(config, dict) or config.get("resolved") is not True:
         fail("Jira fields for NEXUIE are not configured yet", 2)
+    platform = load_platform(config)
+    given_platforms = None
+    if platform and args.platform is not None:
+        given_platforms = parse_platform_option(args.platform)
+    location = load_location(config)
+    loc_value = None
+    if location:
+        loc_value = choose_location(args.location, location[1])
 
     reporter = args.reporter
     if config.get("reporter") == "token-owner" and not reporter:
@@ -108,6 +206,19 @@ def main(argv=None):
     chosen = [it for n, it in enumerate(items, 1) if n not in drops]
     if not chosen:
         fail("no items left for the ticket", 1)
+
+    platforms = []
+    per_item = []
+    if platform:
+        plat_field, plat_default, plat_rules = platform
+        for n, it in enumerate(items, 1):
+            if n not in drops:
+                per_item.append((n, it, suggest_platform(it.get("model"),
+                                                         plat_rules)))
+        if given_platforms is not None:
+            platforms = given_platforms
+        else:
+            platforms = unique(v for _, _, v in per_item if v) or [plat_default]
 
     reason = ""
     if args.reason_file:
@@ -141,6 +252,12 @@ def main(argv=None):
     fields = config.get("fields") or {}
     for key, value in fields.items():
         create += ["--field", "%s=%s" % (key, value)]
+    if platform:
+        create += ["--field", "%s=%s" % (plat_field, ",".join(platforms))]
+        write_text(os.path.join(out_dir, "platforms.txt"),
+                   ",".join(platforms) + "\n")
+    if location:
+        create += ["--field", "%s=%s" % (location[0], loc_value)]
     if reporter:
         create += ["--field", "reporter=" + reporter]
 
@@ -168,6 +285,18 @@ def main(argv=None):
         str(c) for c in config.get("components") or []) or "-"))
     for key, value in fields.items():
         p.append("  Field %s=%s" % (key, value))
+    if platform:
+        p.append("  Platform/s (%s): %s" % (plat_field, ", ".join(platforms)))
+        if given_platforms is None:
+            p.append("    Suggested from the item models; you may change them"
+                     " in your answer.")
+            for n, it, value in per_item:
+                p.append("    item %d (%s): %s" % (
+                    n, show(it.get("serial")), value or "-"))
+        else:
+            p.append("    Set with --platform.")
+    if location:
+        p.append("  Location (%s): %s" % (location[0], loc_value))
     p.append("  Reporter: " + (reporter or "-"))
     p.append("")
     p.append("Description:")

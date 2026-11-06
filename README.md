@@ -37,10 +37,13 @@ Then check it: `<Arya-common-skills folder>\doctor.ps1` shows `pack.inventory` a
 and
 
 ```powershell
-py -3 <Arya-common-skills folder>\scripts\route.py --agent chloe --with-upstream --json "extend my inventory due dates"
+py -3 <Arya-common-skills folder>\scripts\route.py --agent chloe --with-upstream --json "raise an inventory extension request for my borrowed silicon"
 ```
 
-returns `matched` with the skill `x-inventory-extend`.
+returns `matched` with the skill `x-inventory-extend`. Do not use "extend my inventory
+due dates" for this check: a core skill also matches it, so it returns
+`needs-clarification` (bench-profile or x-inventory-extend). `/extend-inventories` or
+a request such as "raise an inventory extension ..." reach the skill directly.
 
 ## Store your Jira token
 
@@ -69,11 +72,22 @@ never with `-Recurse`).
 
 ## Use it
 
-Type `/extend-inventories` in Copilot CLI, or ask Arya "extend my inventory due dates".
+Type `/extend-inventories` in Copilot CLI, or ask Arya "raise an inventory extension
+request for my borrowed silicon".
 The skill lists every borrowed item from the reminders of the last 14 days (read and
 unread), lets
-you drop items and add a reason, and shows one preview. Nothing is written to Jira or to
+you drop items and add a reason, asks for the Location of the ticket (for example
+Penang), and shows one preview. Nothing is written to Jira or to
 your mailbox until you type yes to that preview.
+
+To get a default Location, set your own user environment variable once (the skill
+only reads it and never sets it):
+
+```powershell
+[Environment]::SetEnvironmentVariable('ARYA_INVENTORY_LOCATION','Penang','User')
+```
+
+Restart Copilot CLI and your terminal afterwards so that new sessions see it.
 
 ## Checks
 
